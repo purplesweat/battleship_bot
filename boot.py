@@ -3,6 +3,7 @@ import discord
 
 from discord.ext import commands
 from dotenv import load_dotenv
+from random import randint
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -19,9 +20,6 @@ class TileType:
     MISS = 2
     HIT = 3
 
-class Boards:
-    BLANK_BOARD = [[TileType.BLANK for i in range(10)] for i in range(10)]
-
 class Direction:
     LEFT = (-1,0)
     RIGHT = (1,0)
@@ -34,6 +32,7 @@ class ShipPlacement:
     OUTOFBOUNDS = 1
     OVERLAP = 2
     INVALID_MOVES = 3
+    FINISHED = 4
 
 class Move:
     INVALID_MOVE = (-1,-1)
@@ -47,17 +46,40 @@ class Battleship:
             'Destroyer')
     def __init__(self):
         self.ships_placed = 0
-        self.board = Boards.BLANK_BOARD.copy()
-        self.bot_board = Boards.BLANK_BOARD.copy()
+        self.board = [[TileType.BLANK for i in range(10)] for i in range(10)]
+        self.bot_board = [[TileType.BLANK for i in range(10)] for i in range(10)]
         self.init_bot_board()
     
     def init_bot_board(self):
-        pass
+        for size in self.SHIP_SIZES:
+            ship_placed = False
+            while not ship_placed:
+                col = randint(0, 9)
+                row = randint(0, 9)
+                direction = (Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN)[randint(0,3)]
+                if not (0 <= col + size * direction[0] < 10 and 0 <= row + size * direction[1] < 10):
+                    continue
+
+                blank = 0
+                for i in range(size):
+                    blank += self.bot_board[row + i * direction[1]][col + i * direction[0]]
+                if blank > 0:
+                    continue
+
+                for i in range(size):
+                    self.bot_board[row + i * direction[1]][col + i * direction[0]] = TileType.SHIP
+                ship_placed = True
+
 
     def get_ship_to_place(self):
+        if self.ships_placed >= 5:
+            return "no more"
         return self.SHIP_NAMES[self.ships_placed]
 
     def place_ship(self, pos: (int, int), direction: Direction):
+        if self.ships_placed >= 5:
+            return ShipPlacement.FINISHED
+
         if pos == Move.INVALID_MOVE or direction == Direction.INVALID_DIRECTION:
             return ShipPlacement.INVALID_MOVES
         col = pos[0]
@@ -67,8 +89,7 @@ class Battleship:
             return ShipPlacement.OUTOFBOUNDS
 
         blank = 0
-        for i in range(size):
-            blank += self.board[row + i * direction[1]][col + i * direction[0]]
+        for i in range(size): blank += self.board[row + i * direction[1]][col + i * direction[0]]
         if blank > 0:
             return ShipPlacement.OVERLAP
 
@@ -116,6 +137,8 @@ async def place_ship(ctx, position: str, direction: str):
             message = 'overlap'
         case ShipPlacement.INVALID_MOVES:
             message = 'invalid moves'
+        case ShipPlacement.FINISHED:
+            message = "no more ships to place, start playing"
         case ShipPlacement.SUCCESS:
             message = 'now place your {}'.format(Game.get_ship_to_place())
         case _:
@@ -140,6 +163,8 @@ async def print_board(ctx):
                     square = 'red'
             square += '_square:'
             message += square
+        message += '.'
         await ctx.send(message)
+
 
 bot.run(TOKEN)
