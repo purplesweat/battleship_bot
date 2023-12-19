@@ -1,2 +1,4 @@
 # battleship bot
-wrong token
+A discord bot that plays battleship
+## Setup
+create a .env file and insert your api key
